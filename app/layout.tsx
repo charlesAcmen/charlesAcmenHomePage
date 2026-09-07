@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'CharlesAcmen — Systems in Motion',
+  title: 'CharlesAcmen — A Studio by the Sea',
   description:
-    'CharlesAcmen builds systems in motion: CUDA graphics, distributed systems, and real-time infrastructure.',
+    'A hand-drawn coastal portfolio for CharlesAcmen: CUDA graphics, distributed systems, and real-time infrastructure.',
 };
 
 export default function RootLayout({
