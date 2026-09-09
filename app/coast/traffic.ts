@@ -57,6 +57,7 @@ export function createTraffic(parent: THREE.Object3D) {
   });
 
   return {
+    audioAnchors: cars.map((car) => car.root),
     animate(progress: number) {
       cars.forEach((car, index) => {
         const distance = progress * (82 + (index % 3) * 9);

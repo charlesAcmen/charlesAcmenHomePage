@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Volume2, VolumeX } from 'lucide-react';
 import { createCoastExperience } from './coast/create-coast-experience';
 
 export default function CoastScene() {
   const mountRef = useRef<HTMLDivElement>(null);
   const experienceRef = useRef<ReturnType<typeof createCoastExperience> | null>(null);
   const [progress, setProgress] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [soundPending, setSoundPending] = useState(false);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -16,6 +18,15 @@ export default function CoastScene() {
     experienceRef.current = experience;
     return () => { experience.dispose(); experienceRef.current = null; };
   }, []);
+
+  const toggleSound = async () => {
+    const experience = experienceRef.current;
+    if (!experience || soundPending) return;
+    setSoundPending(true);
+    const enabled = await experience.setSoundEnabled(!soundEnabled);
+    setSoundEnabled(enabled);
+    setSoundPending(false);
+  };
 
   const percent = Math.round(progress * 100);
   return (
@@ -32,7 +43,12 @@ export default function CoastScene() {
       <div className="journey-control">
         <div className="journey-labels"><span>OCEAN VIEW</span><span>{percent}%</span><span>THE STUDIO</span></div>
         <input className="journey-range" type="range" min="0" max="100" value={percent} aria-label="镜头距离" onChange={(event) => experienceRef.current?.setProgress(Number(event.target.value) / 100)} />
-        <button type="button" onClick={() => experienceRef.current?.setProgress(0)} aria-label="回到海岸全景"><RotateCcw aria-hidden="true" /><span>返回全景</span></button>
+        <div className="journey-actions">
+          <button className={soundEnabled ? 'is-sound-on' : ''} type="button" onClick={toggleSound} disabled={soundPending} aria-pressed={soundEnabled} aria-label={soundEnabled ? '关闭环境声音' : '开启环境声音'}>
+            {soundEnabled ? <Volume2 aria-hidden="true" /> : <VolumeX aria-hidden="true" />}<span>{soundEnabled ? '声音开启' : '开启声音'}</span>
+          </button>
+          <button type="button" onClick={() => experienceRef.current?.setProgress(0)} aria-label="回到海岸全景"><RotateCcw aria-hidden="true" /><span>返回全景</span></button>
+        </div>
       </div>
       <noscript>需要启用 JavaScript 才能观看 3D 海岸场景。</noscript>
     </section>

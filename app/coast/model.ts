@@ -34,6 +34,7 @@ export function buildCoast() {
 
   return {
     root,
+    audioAnchors: traffic.audioAnchors,
     updatePointer(camera: THREE.Camera, pointer: THREE.Vector2, interactionEnabled: boolean) {
       return studio.socialWall.updatePointer(camera, pointer, interactionEnabled);
     },

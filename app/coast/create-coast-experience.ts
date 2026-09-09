@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createCoastAudio } from './audio-engine';
 import { buildCoast } from './model';
 
 type ProgressListener = (progress: number) => void;
@@ -17,6 +18,7 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
 
   const world = buildCoast();
   scene.add(world.root);
+  const audio = createCoastAudio(camera, world.audioAnchors);
   const cameraPath = new THREE.CatmullRomCurve3([
     new THREE.Vector3(0, 11.3, 88),
     new THREE.Vector3(0, 9.4, 66),
@@ -87,6 +89,7 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
   const onClick = () => world.activateHovered();
   const onVisibilityChange = () => {
     running = !document.hidden;
+    audio.setPageVisible(running);
     if (running && rafId === 0) {
       lastFrameTime = performance.now();
       rafId = requestAnimationFrame(animate);
@@ -108,6 +111,7 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
       pointerDirty = false;
     }
     world.animate(time * 0.001, delta, currentProgress);
+    audio.update(currentProgress);
     renderer.render(scene, camera);
     publishProgress();
     rafId = requestAnimationFrame(animate);
@@ -130,6 +134,7 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
 
   return {
     setProgress(value: number) { targetProgress = clamp(value); if (reducedMotion) currentProgress = targetProgress; },
+    setSoundEnabled(enabled: boolean) { return audio.setEnabled(enabled); },
     dispose() {
       cancelAnimationFrame(rafId); observer.disconnect();
       window.removeEventListener('wheel', onWheel); window.removeEventListener('pointermove', onPointerMove); window.removeEventListener('keydown', onKeyDown);
@@ -137,7 +142,7 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
       renderer.domElement.removeEventListener('pointerdown', onPointerDown); renderer.domElement.removeEventListener('pointerup', onPointerUp); renderer.domElement.removeEventListener('pointercancel', onPointerUp);
       renderer.domElement.removeEventListener('pointerleave', onPointerLeave); renderer.domElement.removeEventListener('click', onClick);
       document.documentElement.style.removeProperty('--journey');
-      world.dispose(); renderer.dispose(); renderer.domElement.remove();
+      audio.dispose(); world.dispose(); renderer.dispose(); renderer.domElement.remove();
     },
   };
 }
