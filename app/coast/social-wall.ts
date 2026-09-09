@@ -2,11 +2,13 @@ import * as THREE from 'three';
 import { CARD_SIZE, createSocialCard, type SocialCardController } from './social-card';
 import { socialCards } from './social-card-data';
 
-export function createSocialWall(parent: THREE.Object3D) {
+export function createSocialWall(parent: THREE.Object3D, wallZ = -6.9) {
   const geometry = new THREE.PlaneGeometry(CARD_SIZE, CARD_SIZE, 12, 12);
   const spacing = 2.7;
   const startX = -((socialCards.length - 1) * spacing) / 2;
-  const cards = socialCards.map((config, index) => createSocialCard(parent, config, startX + index * spacing, geometry));
+  const cards = socialCards.map((config, index) => (
+    createSocialCard(parent, config, startX + index * spacing, wallZ, geometry)
+  ));
   const targets = cards.flatMap((card) => card.targets);
   const raycaster = new THREE.Raycaster();
   const targetMap = new Map<string, SocialCardController>();
@@ -34,7 +36,9 @@ export function createSocialWall(parent: THREE.Object3D) {
       return Boolean(hoveredCard);
     },
     activateHovered() {
-      hoveredCard?.activate();
+      if (!hoveredCard) return false;
+      hoveredCard.activate();
+      return true;
     },
     animate(delta: number) {
       cards.forEach((card) => card.animate(delta));

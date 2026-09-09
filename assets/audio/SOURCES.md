@@ -21,3 +21,7 @@ The checked-in audio is intentionally sourced from openly licensed game-audio li
 - Note: the source page states that the loops were remade from a public-domain recording. The three selected files differ in pitch and are further staggered and spatialized at runtime.
 
 Attribution is not required by CC0, but the links are retained for provenance and future maintenance.
+
+## Vehicle horn
+
+The click-to-honk sound is synthesized at runtime in `app/coast/audio-engine.ts` from two generated tones with a short envelope. It does not use an external recording.

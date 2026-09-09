@@ -13,7 +13,9 @@
 - 关键入口：`app/coast/create-coast-experience.ts`。
 - 世界装配：`app/coast/model.ts`。
 - React 桥：`app/coast-scene.tsx`。
-- 声音：`app/coast/audio-engine.ts`，默认静音、点击解锁、媒体流式循环、车辆距离衰减。
+- 声音：`app/coast/audio-engine.ts`，默认开启、受限时手势重试、媒体流式循环、车辆距离衰减与合成喇叭。
+- 海浪：`app/coast/surf.ts`，由浏览进度驱动，不是独立时间动画。
+- 显示器：`app/coast/studio-display.ts`，Three.js 外壳 + 延迟加载的 CSS3D YouTube iframe。
 - 内容：`app/site-data.ts` 与 `app/coast/social-card-data.ts`。
 
 ## 开始和结束任务

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { CSS3DRenderer } from 'three/addons/renderers/CSS3DRenderer.js';
 import { createCoastAudio } from './audio-engine';
 import { buildCoast } from './model';
 
@@ -15,6 +16,9 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
   renderer.domElement.setAttribute('aria-hidden', 'true');
   container.appendChild(renderer.domElement);
+  const cssRenderer = new CSS3DRenderer();
+  cssRenderer.domElement.className = 'coast-css3d';
+  container.appendChild(cssRenderer.domElement);
 
   const world = buildCoast();
   scene.add(world.root);
@@ -26,7 +30,7 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
     new THREE.Vector3(0, 5.7, 25),
     new THREE.Vector3(0, 4.6, 13),
   ]);
-  const cameraTarget = new THREE.Vector3(0, 3.1, -3.7);
+  const cameraTarget = new THREE.Vector3(0, 3.1, -7.4);
   const lookAt = new THREE.Vector3();
   const pointer = new THREE.Vector2();
   let targetProgress = 0;
@@ -52,11 +56,13 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
     camera.aspect = clientWidth / Math.max(clientHeight, 1);
     camera.updateProjectionMatrix();
     renderer.setSize(clientWidth, clientHeight, false);
+    cssRenderer.setSize(clientWidth, clientHeight);
   };
   const onWheel = (event: WheelEvent) => {
     const target = event.target;
     if (target instanceof Element && target.closest('.site-index.is-open, .journey-control')) return;
     event.preventDefault();
+    void audio.retryPlayback();
     targetProgress = clamp(targetProgress + event.deltaY * 0.00048);
   };
   const onPointerMove = (event: PointerEvent) => {
@@ -72,6 +78,7 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
     pointerDirty = true;
   };
   const onPointerDown = (event: PointerEvent) => {
+    void audio.retryPlayback();
     if (event.pointerType === 'mouse') return;
     dragging = true; pointerStartY = event.clientY; pointerStartProgress = targetProgress;
     renderer.domElement.setPointerCapture(event.pointerId);
@@ -81,12 +88,16 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
     if (renderer.domElement.hasPointerCapture(event.pointerId)) renderer.domElement.releasePointerCapture(event.pointerId);
   };
   const onKeyDown = (event: KeyboardEvent) => {
+    void audio.retryPlayback();
     if (event.key === 'ArrowDown' || event.key === 'PageDown') targetProgress = clamp(targetProgress + 0.08);
     if (event.key === 'ArrowUp' || event.key === 'PageUp') targetProgress = clamp(targetProgress - 0.08);
     if (event.key === 'Home') targetProgress = 0;
     if (event.key === 'End') targetProgress = 1;
   };
-  const onClick = () => world.activateHovered();
+  const onClick = () => {
+    const carIndex = world.activateHovered();
+    if (carIndex !== null) void audio.honk(carIndex);
+  };
   const onVisibilityChange = () => {
     running = !document.hidden;
     audio.setPageVisible(running);
@@ -106,13 +117,14 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
     camera.lookAt(lookAt);
     const cameraMoved = Math.abs(currentProgress - previousProgress) > 0.00001;
     if (pointerDirty || cameraMoved) {
-      const hoveringCard = world.updatePointer(camera, pointer, pointerInside && currentProgress > 0.68);
-      renderer.domElement.style.cursor = hoveringCard ? 'pointer' : dragging ? 'grabbing' : 'grab';
+      const hoveringInteractive = world.updatePointer(camera, pointer, pointerInside, currentProgress);
+      renderer.domElement.style.cursor = hoveringInteractive ? 'pointer' : dragging ? 'grabbing' : 'grab';
       pointerDirty = false;
     }
     world.animate(time * 0.001, delta, currentProgress);
     audio.update(currentProgress);
     renderer.render(scene, camera);
+    cssRenderer.render(scene, camera);
     publishProgress();
     rafId = requestAnimationFrame(animate);
   };
@@ -142,7 +154,7 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
       renderer.domElement.removeEventListener('pointerdown', onPointerDown); renderer.domElement.removeEventListener('pointerup', onPointerUp); renderer.domElement.removeEventListener('pointercancel', onPointerUp);
       renderer.domElement.removeEventListener('pointerleave', onPointerLeave); renderer.domElement.removeEventListener('click', onClick);
       document.documentElement.style.removeProperty('--journey');
-      audio.dispose(); world.dispose(); renderer.dispose(); renderer.domElement.remove();
+      audio.dispose(); world.dispose(); renderer.dispose(); renderer.domElement.remove(); cssRenderer.domElement.remove();
     },
   };
 }

@@ -11,6 +11,25 @@ type Track = {
 
 const engineUrls = [carEngineLowUrl, carEngineMidUrl, carEngineHighUrl];
 
+function createHornBuffer(context: AudioContext) {
+  const duration = 0.48;
+  const sampleCount = Math.floor(context.sampleRate * duration);
+  const buffer = context.createBuffer(1, sampleCount, context.sampleRate);
+  const samples = buffer.getChannelData(0);
+
+  for (let index = 0; index < sampleCount; index++) {
+    const time = index / context.sampleRate;
+    const attack = Math.min(1, time / 0.025);
+    const release = Math.min(1, (duration - time) / 0.11);
+    const envelope = attack * release;
+    const wobble = Math.sin(time * Math.PI * 2 * 5) * 2.2;
+    const dualTone = Math.sin(time * Math.PI * 2 * (349 + wobble))
+      + Math.sin(time * Math.PI * 2 * (440 + wobble)) * 0.72;
+    samples[index] = Math.tanh(dualTone * 1.35) * envelope * 0.48;
+  }
+  return buffer;
+}
+
 function createStreamingMedia(url: string) {
   const media = document.createElement('audio');
   media.crossOrigin = 'anonymous';
@@ -33,6 +52,18 @@ export function createCoastAudio(camera: THREE.Camera, carAnchors: THREE.Object3
   camera.add(waves);
   tracks.push({ media: wavesMedia, sound: waves });
 
+  const hornBuffer = createHornBuffer(listener.context);
+  const horns = carAnchors.map((anchor) => {
+    const horn = new THREE.PositionalAudio(listener);
+    horn.setBuffer(hornBuffer);
+    horn.setDistanceModel('inverse');
+    horn.setRefDistance(9);
+    horn.setRolloffFactor(0.75);
+    horn.setVolume(0.78);
+    anchor.add(horn);
+    return horn;
+  });
+
   carAnchors.forEach((anchor, index) => {
     const media = createStreamingMedia(engineUrls[index % engineUrls.length]);
     media.playbackRate = [0.92, 1, 1.08, 0.96, 1.04, 1.12][index] ?? 1;
@@ -46,14 +77,14 @@ export function createCoastAudio(camera: THREE.Camera, carAnchors: THREE.Object3
     const engine = new THREE.PositionalAudio(listener);
     engine.setMediaElementSource(media);
     engine.setDistanceModel('inverse');
-    engine.setRefDistance(4.8);
-    engine.setRolloffFactor(1.35);
-    engine.setVolume(0.115 + (index % 3) * 0.012);
+    engine.setRefDistance(8.5);
+    engine.setRolloffFactor(0.8);
+    engine.setVolume(0.4 + (index % 3) * 0.035);
     anchor.add(engine);
     tracks.push({ media, sound: engine });
   });
 
-  let enabled = false;
+  let enabled = true;
   let pageVisible = !document.hidden;
   let revision = 0;
   let lastWaveVolume = 0.22;
@@ -67,23 +98,26 @@ export function createCoastAudio(camera: THREE.Camera, carAnchors: THREE.Object3
     }
 
     try {
-      if (listener.context.state === 'suspended') await listener.context.resume();
-      if (request !== revision || !enabled || !pageVisible) return enabled;
-      const results = await Promise.allSettled(tracks.map(({ media }) => media.play()));
+      const resumePromise = listener.context.state === 'suspended'
+        ? listener.context.resume()
+        : Promise.resolve();
+      const playPromises = tracks.map(({ media }) => media.play());
+      const results = await Promise.allSettled([resumePromise, ...playPromises]);
       if (request !== revision || !enabled || !pageVisible) {
         pauseAll();
         return enabled;
       }
-      if (!results.some((result) => result.status === 'fulfilled')) {
-        enabled = false;
-        pauseAll();
-      }
+      if (!results.slice(1).some((result) => result.status === 'fulfilled')) pauseAll();
     } catch {
-      enabled = false;
       pauseAll();
     }
     return enabled;
   };
+  const retryPlayback = () => (
+    tracks.some(({ media }) => media.paused) ? syncPlayback() : Promise.resolve(enabled)
+  );
+
+  void syncPlayback();
 
   return {
     async setEnabled(nextEnabled: boolean) {
@@ -93,6 +127,17 @@ export function createCoastAudio(camera: THREE.Camera, carAnchors: THREE.Object3
     setPageVisible(visible: boolean) {
       pageVisible = visible;
       void syncPlayback();
+    },
+    retryPlayback() {
+      return retryPlayback();
+    },
+    async honk(carIndex: number) {
+      if (!enabled || !pageVisible) return;
+      await retryPlayback();
+      const horn = horns[carIndex];
+      if (!horn || listener.context.state !== 'running') return;
+      if (horn.isPlaying) horn.stop();
+      horn.play();
     },
     update(progress: number) {
       const volume = THREE.MathUtils.lerp(0.22, 0.095, progress);
@@ -110,6 +155,11 @@ export function createCoastAudio(camera: THREE.Camera, carAnchors: THREE.Object3
         sound.removeFromParent();
         media.removeAttribute('src');
         media.load();
+      });
+      horns.forEach((horn) => {
+        if (horn.isPlaying) horn.stop();
+        horn.disconnect();
+        horn.removeFromParent();
       });
       listener.removeFromParent();
     },

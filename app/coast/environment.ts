@@ -118,20 +118,6 @@ export function createBeachDetails(parent: THREE.Object3D) {
   });
 }
 
-export function createWater(parent: THREE.Object3D) {
-  box(parent, [120, 0.12, 78], [0, -0.04, 63.5]);
-  for (let row = 0; row < 18; row++) {
-    const z = 31 + row * 3.4;
-    for (let segment = 0; segment < 6; segment++) {
-      const x0 = -52 + segment * 18 + (row % 2) * 4;
-      const points = Array.from({ length: 11 }, (_, index) => (
-        new THREE.Vector3(x0 + index * 1.45, 0.05, z + Math.sin(index * 1.1 + row) * 0.22)
-      ));
-      line(parent, points, true);
-    }
-  }
-}
-
 export function createStreet(parent: THREE.Object3D) {
   line(parent, [new THREE.Vector3(-58, 0.13, 3.1), new THREE.Vector3(58, 0.13, 3.1)], true);
   line(parent, [new THREE.Vector3(-58, 0.13, 9.25), new THREE.Vector3(58, 0.13, 9.25)], true);
@@ -139,6 +125,7 @@ export function createStreet(parent: THREE.Object3D) {
     line(parent, [new THREE.Vector3(x, 0.13, 6.15), new THREE.Vector3(x + 2.8, 0.13, 6.15)], true);
   }
   for (let x = -45; x < 46; x += 11) {
+    if (Math.abs(x) < 3) continue;
     const lamp = new THREE.Group();
     lamp.position.set(x, 0, 11);
     parent.add(lamp);

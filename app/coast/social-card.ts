@@ -94,10 +94,11 @@ export function createSocialCard(
   parent: THREE.Object3D,
   config: SocialCardConfig,
   positionX: number,
+  positionZ: number,
   geometry: THREE.PlaneGeometry,
 ): SocialCardController {
   const root = new THREE.Group();
-  root.position.set(positionX, 3.5, -6.9);
+  root.position.set(positionX, 3.5, positionZ);
   parent.add(root);
 
   const press = { value: 0 };

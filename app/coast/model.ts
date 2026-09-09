@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { addDecoBuilding } from './architecture';
-import { createBeachDetails, createBirds, createPalm, createStreet, createWater } from './environment';
+import { createBeachDetails, createBirds, createPalm, createStreet } from './environment';
 import { createBreakwaterHotel } from './iconic-hotels';
 import { box, disposeScene } from './scene-kit';
 import { createStudio } from './studio';
+import { createSurf } from './surf';
 import { createTraffic } from './traffic';
 
 export function buildCoast() {
@@ -12,7 +13,7 @@ export function buildCoast() {
 
   box(root, [120, 0.15, 9.5], [0, 0, 5.7]);
   box(root, [120, 0.12, 17], [0, -0.02, 20.7]);
-  createWater(root);
+  const surf = createSurf(root);
   createStreet(root);
   createBeachDetails(root);
 
@@ -35,20 +36,26 @@ export function buildCoast() {
   return {
     root,
     audioAnchors: traffic.audioAnchors,
-    updatePointer(camera: THREE.Camera, pointer: THREE.Vector2, interactionEnabled: boolean) {
-      return studio.socialWall.updatePointer(camera, pointer, interactionEnabled);
+    updatePointer(camera: THREE.Camera, pointer: THREE.Vector2, pointerInside: boolean, progress: number) {
+      const cardHovered = studio.socialWall.updatePointer(camera, pointer, pointerInside && progress > 0.68);
+      const carHovered = traffic.updatePointer(camera, pointer, pointerInside && !cardHovered);
+      return cardHovered || carHovered;
     },
     activateHovered() {
-      studio.socialWall.activateHovered();
+      if (studio.socialWall.activateHovered()) return null;
+      return traffic.activateHovered();
     },
     animate(time: number, delta: number, progress: number) {
       animatedPalms.forEach((palm, index) => {
         palm.rotation.z = Math.sin(time * 0.55 + index * 0.8) * 0.012 * (1 - progress * 0.55);
       });
-      traffic.animate(progress);
+      traffic.animate(progress, delta);
+      surf.animate(progress);
       studio.socialWall.animate(delta);
+      studio.display.update(progress);
     },
     dispose() {
+      studio.display.dispose();
       disposeScene(root);
     },
   };

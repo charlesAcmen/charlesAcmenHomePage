@@ -8,7 +8,7 @@ export default function CoastScene() {
   const mountRef = useRef<HTMLDivElement>(null);
   const experienceRef = useRef<ReturnType<typeof createCoastExperience> | null>(null);
   const [progress, setProgress] = useState(0);
-  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const [soundPending, setSoundPending] = useState(false);
 
   useEffect(() => {
