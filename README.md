@@ -106,5 +106,11 @@ assets/
 
 - Build command：`npm run build`
 - Output directory：`dist/client`
+- Node.js：由仓库根目录的 `.nvmrc` 固定为 `22.16.0`
+- Production branch：`main`
+
+在 Cloudflare Dashboard 的 **Workers & Pages → Create application → Pages → Connect to Git** 中选择
+`charlesAcmen/charlesAcmenHomePage`，按以上配置首次发布即可获得免费的
+`*.pages.dev` 公网地址。后续推送到 `main` 会自动更新生产站点；其他分支会生成预览地址。
 
 当前协作阶段只要求本地预览。除非站点所有者明确提出，不要自行部署、绑定域名或改成需要数据库/服务端状态的架构。
