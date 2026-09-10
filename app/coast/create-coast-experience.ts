@@ -4,8 +4,9 @@ import { createCoastAudio } from './audio-engine';
 import { buildCoast } from './model';
 
 type ProgressListener = (progress: number) => void;
+type LookModeListener = (locked: boolean) => void;
 
-export function createCoastExperience(container: HTMLDivElement, onProgress: ProgressListener) {
+export function createCoastExperience(container: HTMLDivElement, onProgress: ProgressListener, onLookModeChange: LookModeListener) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xfffefd);
   scene.fog = new THREE.Fog(0xfffefd, 62, 130);
@@ -28,10 +29,11 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
     new THREE.Vector3(0, 9.4, 66),
     new THREE.Vector3(0, 7.3, 43),
     new THREE.Vector3(0, 5.7, 25),
-    new THREE.Vector3(0, 4.6, 13),
+    new THREE.Vector3(0, 5.95, -9.6),
   ]);
-  const cameraTarget = new THREE.Vector3(0, 3.1, -7.4);
+  const cameraTarget = new THREE.Vector3(0, 5.65, -19.6);
   const lookAt = new THREE.Vector3();
+  const lookRotation = new THREE.Euler(0, 0, 0, 'YXZ');
   const pointer = new THREE.Vector2();
   let targetProgress = 0;
   let currentProgress = 0;
@@ -44,6 +46,10 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
   let pointerDirty = true;
   let lastFrameTime = 0;
   let running = true;
+  let pointerLocked = false;
+  let preserveLook = false;
+  let lookYaw = 0;
+  let lookPitch = 0;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const clamp = (value: number) => Math.min(1, Math.max(0, value));
 
@@ -66,6 +72,12 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
     targetProgress = clamp(targetProgress + event.deltaY * 0.00048);
   };
   const onPointerMove = (event: PointerEvent) => {
+    if (pointerLocked) {
+      lookYaw -= event.movementX * 0.0025;
+      lookPitch = THREE.MathUtils.clamp(lookPitch - event.movementY * 0.0018, -0.72, 0.72);
+      pointerDirty = true;
+      return;
+    }
     const bounds = renderer.domElement.getBoundingClientRect();
     pointer.x = ((event.clientX - bounds.left) / Math.max(bounds.width, 1)) * 2 - 1;
     pointer.y = -((event.clientY - bounds.top) / Math.max(bounds.height, 1)) * 2 + 1;
@@ -79,13 +91,17 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
   };
   const onPointerDown = (event: PointerEvent) => {
     void audio.retryPlayback();
-    if (event.pointerType === 'mouse') return;
+    const isVideoTarget = event.target instanceof Element && Boolean(event.target.closest('.studio-video-screen'));
+    if (event.pointerType === 'mouse') {
+      if (currentProgress > 0.9 && !isVideoTarget && !world.hasHoveredCard() && !pointerLocked) container.requestPointerLock();
+      return;
+    }
     dragging = true; pointerStartY = event.clientY; pointerStartProgress = targetProgress;
-    renderer.domElement.setPointerCapture(event.pointerId);
+    container.setPointerCapture(event.pointerId);
   };
   const onPointerUp = (event: PointerEvent) => {
     dragging = false;
-    if (renderer.domElement.hasPointerCapture(event.pointerId)) renderer.domElement.releasePointerCapture(event.pointerId);
+    if (container.hasPointerCapture(event.pointerId)) container.releasePointerCapture(event.pointerId);
   };
   const onKeyDown = (event: KeyboardEvent) => {
     void audio.retryPlayback();
@@ -94,9 +110,20 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
     if (event.key === 'Home') targetProgress = 0;
     if (event.key === 'End') targetProgress = 1;
   };
-  const onClick = () => {
+  const onClick = (event: MouseEvent) => {
+    if (event.target instanceof Element && event.target.closest('.studio-video-screen')) return;
     const carIndex = world.activateHovered();
     if (carIndex !== null) void audio.honk(carIndex);
+  };
+  const onPointerLockChange = () => {
+    pointerLocked = document.pointerLockElement === container;
+    preserveLook = !pointerLocked;
+    if (pointerLocked) {
+      pointer.set(0, 0);
+      pointerInside = true;
+    }
+    onLookModeChange(pointerLocked);
+    pointerDirty = true;
   };
   const onVisibilityChange = () => {
     running = !document.hidden;
@@ -115,10 +142,21 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
     cameraPath.getPointAt(currentProgress, camera.position);
     lookAt.copy(cameraTarget);
     camera.lookAt(lookAt);
+    const roomLook = THREE.MathUtils.smoothstep(currentProgress, 0.76, 0.9);
+    if (roomLook > 0.001) {
+      if (!pointerLocked && !preserveLook) {
+        lookYaw = -pointer.x * 1.38;
+        lookPitch = pointer.y * 0.5;
+      }
+      lookRotation.setFromQuaternion(camera.quaternion, 'YXZ');
+      lookRotation.y += lookYaw * roomLook;
+      lookRotation.x += lookPitch * roomLook;
+      camera.quaternion.setFromEuler(lookRotation);
+    }
     const cameraMoved = Math.abs(currentProgress - previousProgress) > 0.00001;
     if (pointerDirty || cameraMoved) {
       const hoveringInteractive = world.updatePointer(camera, pointer, pointerInside, currentProgress);
-      renderer.domElement.style.cursor = hoveringInteractive ? 'pointer' : dragging ? 'grabbing' : 'grab';
+      container.style.cursor = hoveringInteractive ? 'pointer' : dragging ? 'grabbing' : 'grab';
       pointerDirty = false;
     }
     world.animate(time * 0.001, delta, currentProgress);
@@ -135,11 +173,12 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
   window.addEventListener('pointermove', onPointerMove, { passive: true });
   window.addEventListener('keydown', onKeyDown);
   document.addEventListener('visibilitychange', onVisibilityChange);
-  renderer.domElement.addEventListener('pointerdown', onPointerDown);
-  renderer.domElement.addEventListener('pointerup', onPointerUp);
-  renderer.domElement.addEventListener('pointercancel', onPointerUp);
-  renderer.domElement.addEventListener('pointerleave', onPointerLeave);
-  renderer.domElement.addEventListener('click', onClick);
+  container.addEventListener('pointerdown', onPointerDown);
+  container.addEventListener('pointerup', onPointerUp);
+  container.addEventListener('pointercancel', onPointerUp);
+  container.addEventListener('pointerleave', onPointerLeave);
+  container.addEventListener('click', onClick);
+  document.addEventListener('pointerlockchange', onPointerLockChange);
   resize();
   lastFrameTime = performance.now();
   rafId = requestAnimationFrame(animate);
@@ -151,8 +190,11 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
       cancelAnimationFrame(rafId); observer.disconnect();
       window.removeEventListener('wheel', onWheel); window.removeEventListener('pointermove', onPointerMove); window.removeEventListener('keydown', onKeyDown);
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      renderer.domElement.removeEventListener('pointerdown', onPointerDown); renderer.domElement.removeEventListener('pointerup', onPointerUp); renderer.domElement.removeEventListener('pointercancel', onPointerUp);
-      renderer.domElement.removeEventListener('pointerleave', onPointerLeave); renderer.domElement.removeEventListener('click', onClick);
+      container.removeEventListener('pointerdown', onPointerDown); container.removeEventListener('pointerup', onPointerUp); container.removeEventListener('pointercancel', onPointerUp);
+      container.removeEventListener('pointerleave', onPointerLeave); container.removeEventListener('click', onClick);
+      document.removeEventListener('pointerlockchange', onPointerLockChange);
+      if (document.pointerLockElement === container) document.exitPointerLock();
+      onLookModeChange(false);
       document.documentElement.style.removeProperty('--journey');
       audio.dispose(); world.dispose(); renderer.dispose(); renderer.domElement.remove(); cssRenderer.domElement.remove();
     },

@@ -26,6 +26,7 @@ export function buildCoast() {
 
   const studio = createStudio(root);
   const traffic = createTraffic(root);
+  let cardHovered = false;
   const palms: Array<[number, number, number, number]> = [
     [-43, 13.5, 7.2, 0.4], [-31, 15, 8.3, -0.45], [-18.5, 12.5, 7.5, 0.34], [-11.8, 14.7, 8.8, -0.5],
     [11.8, 14, 8.4, 0.42], [19, 13.1, 7.4, -0.38], [31, 15.5, 8.8, 0.55], [43, 13.8, 7.8, -0.4],
@@ -37,12 +38,20 @@ export function buildCoast() {
     root,
     audioAnchors: traffic.audioAnchors,
     updatePointer(camera: THREE.Camera, pointer: THREE.Vector2, pointerInside: boolean, progress: number) {
-      const cardHovered = studio.socialWall.updatePointer(camera, pointer, pointerInside && progress > 0.68);
-      const carHovered = traffic.updatePointer(camera, pointer, pointerInside && !cardHovered);
-      return cardHovered || carHovered;
+      const socialHovered = studio.socialWall.updatePointer(camera, pointer, pointerInside && progress > 0.68);
+      const projectHovered = studio.projectWall.updatePointer(camera, pointer, pointerInside && progress > 0.79);
+      cardHovered = socialHovered || projectHovered;
+      const displayHovered = studio.display.updatePointer(camera, pointer, pointerInside && progress > 0.8);
+      const carHovered = traffic.updatePointer(camera, pointer, pointerInside && !cardHovered && !displayHovered);
+      return cardHovered || displayHovered || carHovered;
+    },
+    hasHoveredCard() {
+      return cardHovered;
     },
     activateHovered() {
       if (studio.socialWall.activateHovered()) return null;
+      if (studio.projectWall.activateHovered()) return null;
+      if (studio.display.activateHovered()) return null;
       return traffic.activateHovered();
     },
     animate(time: number, delta: number, progress: number) {
@@ -52,6 +61,7 @@ export function buildCoast() {
       traffic.animate(progress, delta);
       surf.animate(progress);
       studio.socialWall.animate(delta);
+      studio.projectWall.animate(delta);
       studio.display.update(progress);
     },
     dispose() {

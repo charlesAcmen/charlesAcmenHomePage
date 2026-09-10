@@ -2,12 +2,12 @@ import * as THREE from 'three';
 import { CARD_SIZE, createSocialCard, type SocialCardController } from './social-card';
 import { socialCards } from './social-card-data';
 
-export function createSocialWall(parent: THREE.Object3D, wallZ = -6.9) {
+export function createSocialWall(parent: THREE.Object3D, wallZ = -6.9, positionY = 3.5) {
   const geometry = new THREE.PlaneGeometry(CARD_SIZE, CARD_SIZE, 12, 12);
   const spacing = 2.7;
   const startX = -((socialCards.length - 1) * spacing) / 2;
   const cards = socialCards.map((config, index) => (
-    createSocialCard(parent, config, startX + index * spacing, wallZ, geometry)
+    createSocialCard(parent, config, startX + index * spacing, wallZ, geometry, positionY)
   ));
   const targets = cards.flatMap((card) => card.targets);
   const raycaster = new THREE.Raycaster();

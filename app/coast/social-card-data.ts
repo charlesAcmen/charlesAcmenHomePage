@@ -19,6 +19,10 @@ export type SocialCardConfig = {
   front: CardImage;
   back?: CardImage;
   href?: string;
+  focusOnActivate?: boolean;
+  cycleImages?: CardImage[];
+  labelHref?: string;
+  showFullImage?: boolean;
 };
 
 export const socialCards: SocialCardConfig[] = [

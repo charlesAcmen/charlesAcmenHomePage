@@ -9,13 +9,14 @@ CharlesAcmen 的个人网站目前是一段可滚动探索的 3D 海岸体验，
 - 正对海岸、只向前推进的滚轮镜头；底部滑杆、键盘和触摸拖动也可控制进度。
 - 白底、黑色双层线条和少量手绘扰动组成的海岸、道路、棕榈树、车辆与 Art Deco 建筑。
 - 参考 Miami Beach Breakwater Hotel 轮廓手工搭建的标志性酒店。
-- 加深为近似正方形平面的彩色工作室和七张社交卡片：WeChat、QQ、Instagram、YouTube、X、Red Note、GitHub。
+- 加深并抬高的近方形彩色工作室：镜头最终进入室内；点击空白处锁定鼠标以无限环视，中心准星决定卡片与显示器的点击目标。
+- 背墙保留七张社交卡片：WeChat、QQ、Instagram、YouTube、X、Red Note、GitHub；左墙展示四张完整比例的项目卡片。Project 3 在同一张卡中轮换三张封面，项目名称可跳转对应仓库。
 - 社交卡片使用头像原图作为薄片；悬停时通过顶点着色器产生“一角陷下、对角翘起”的柔性形变。
 - WeChat 与 QQ 点击后在头像和二维码之间抽换；其余卡片在新标签页打开主页。
 - 两条车道的六辆车随浏览进度前进并循环回到街道另一端；hover 会轻微抬升，点击会从对应位置鸣笛。
 - 默认开启的声音场景：平静水浪作为全局底声，六辆车混合三档引擎循环；车辆声音带左右声像和距离衰减。
 - 随浏览进度拍向岸边的五组线描浪带；滚动反向时浪的推进也反向。
-- 工作室侧墙上的 3D 薄屏与悬挂结构，屏幕内嵌可交互的 YouTube 播放器，默认内容为《Grand Theft Auto VI: Official Cover Art Reveal》。
+- 工作室右墙内嵌平齐的 3D 显示器与可交互的 YouTube 播放器，默认内容为《Grand Theft Auto VI: Official Cover Art Reveal》；播放器仅在接近工作室后加载。
 - 索引抽屉保留项目介绍与作品入口，Three.js 不可用时仍有可访问的文本链接。
 
 ## 技术组成
@@ -66,10 +67,12 @@ app/
     architecture.ts              通用 Art Deco 建筑
     iconic-hotels.ts             Breakwater Hotel 手工轮廓
     studio.ts                    彩色工作室
-    studio-display.ts            3D 显示器与延迟加载的 YouTube CSS3D 层
+    studio-display.ts            右墙嵌入式显示器与延迟加载的 YouTube CSS3D 层
     social-card-data.ts          卡片图片、名称、二维码和外链
     social-card.ts               单张 3D 卡片与形变着色器
     social-wall.ts               卡片布局、hover、点击和抽换状态
+    project-card-data.ts         项目展墙图片与英文名称
+    project-wall.ts              左墙项目卡片的布局、hover 与前出状态
     traffic.ts                   双向车辆与声音挂点
     scene-kit.ts                 共用几何、材质和释放工具
 assets/

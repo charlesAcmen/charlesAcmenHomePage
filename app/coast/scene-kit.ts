@@ -100,7 +100,13 @@ export function windowFrame(
   line(parent, [new THREE.Vector3(x, y - height / 2, z), new THREE.Vector3(x, y + height / 2, z)], true);
 }
 
-export function makeTextSprite(title: string, subtitle?: string) {
+type TextSpriteStyle = {
+  titleColor?: string;
+  shadowColor?: string;
+  strokeColor?: string;
+};
+
+export function makeTextSprite(title: string, subtitle?: string, style?: TextSpriteStyle) {
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
   canvas.height = subtitle ? 320 : 160;
@@ -108,10 +114,17 @@ export function makeTextSprite(title: string, subtitle?: string) {
   if (context) {
     context.clearRect(0, 0, canvas.width, canvas.height);
     context.textAlign = 'center';
-    context.shadowColor = '#ff3f93';
+    context.shadowColor = style?.shadowColor ?? '#ff3f93';
     context.shadowBlur = subtitle ? 22 : 10;
-    context.fillStyle = '#ff3f93';
-    context.font = subtitle ? 'italic 900 152px Arial' : '700 62px Arial';
+    context.fillStyle = style?.titleColor ?? '#ff3f93';
+    const titleFontSize = subtitle ? 152 : title.length > 25 ? 48 : title.length > 18 ? 56 : 62;
+    context.font = subtitle ? 'italic 900 152px Arial' : `700 ${titleFontSize}px Arial`;
+    if (style?.strokeColor) {
+      context.strokeStyle = style.strokeColor;
+      context.lineJoin = 'round';
+      context.lineWidth = subtitle ? 14 : 9;
+      context.strokeText(title, 512, subtitle ? 174 : 98);
+    }
     context.fillText(title, 512, subtitle ? 174 : 98);
     if (subtitle) {
       context.shadowBlur = 0;
@@ -150,6 +163,12 @@ export function disposeScene(root: THREE.Object3D) {
     if (object instanceof THREE.Sprite) {
       materials.add(object.material);
       if (object.material.map) textures.add(object.material.map);
+    }
+    const galleryTextures = object.userData.galleryTextures;
+    if (Array.isArray(galleryTextures)) {
+      galleryTextures.forEach((texture) => {
+        if (texture instanceof THREE.Texture) textures.add(texture);
+      });
     }
   });
   geometries.forEach((geometry) => geometry.dispose());

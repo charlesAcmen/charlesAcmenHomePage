@@ -10,11 +10,12 @@ export default function CoastScene() {
   const [progress, setProgress] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [soundPending, setSoundPending] = useState(false);
+  const [lookLocked, setLookLocked] = useState(false);
 
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
-    const experience = createCoastExperience(mount, setProgress);
+    const experience = createCoastExperience(mount, setProgress, setLookLocked);
     experienceRef.current = experience;
     return () => { experience.dispose(); experienceRef.current = null; };
   }, []);
@@ -32,6 +33,7 @@ export default function CoastScene() {
   return (
     <section className="coast-experience" id="coast" aria-label="可滚动探索的迈阿密海岸线描场景">
       <div ref={mountRef} className="coast-canvas" />
+      <div className={`room-reticle ${lookLocked ? 'is-visible' : ''}`} aria-hidden="true" />
       <nav className="sr-only" aria-label="CharlesAcmen 社交主页">
         <a href="https://github.com/charlesAcmen" target="_blank" rel="noreferrer">GitHub</a>
         <a href="https://www.instagram.com/charlieacmen/" target="_blank" rel="noreferrer">Instagram</a>

@@ -20,6 +20,11 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .coast-experience, .coast-canvas { position: absolute; inset: 0; }
 .coast-canvas { touch-action: none; }
 .coast-canvas canvas { display: block; width: 100%; height: 100%; }
+.room-reticle { position: absolute; z-index: 7; top: 50%; left: 50%; width: 1.45rem; height: 1.45rem; border: 1.5px solid rgba(255, 254, 253, .92); border-radius: 50%; box-shadow: 0 0 0 1px rgba(24, 24, 24, .78), 0 0 18px rgba(59, 215, 208, .86); opacity: 0; pointer-events: none; transform: translate(-50%, -50%); transition: opacity 160ms ease; }
+.room-reticle::before, .room-reticle::after { position: absolute; top: 50%; left: 50%; background: #3bd7d0; box-shadow: 0 0 8px rgba(255, 63, 147, .95); content: ''; transform: translate(-50%, -50%); }
+.room-reticle::before { width: 1.95rem; height: 1px; }
+.room-reticle::after { width: 1px; height: 1.95rem; }
+.room-reticle.is-visible { opacity: 1; }
 .coast-css3d { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .studio-video-screen { overflow: hidden; border-radius: 10px; background: #140d27; box-shadow: 0 0 28px rgba(59, 215, 208, .24); opacity: 0; pointer-events: none; transition: opacity 260ms ease; backface-visibility: hidden; }
 .studio-video-screen iframe { display: block; width: 100%; height: 100%; border: 0; background: #140d27; }
