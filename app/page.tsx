@@ -30,7 +30,10 @@ export default function Home() {
         <p>Somewhere by the sea</p>
         <h1>一间<span>不一样的</span><br />工作室。</h1>
       </section>
-      <div className="coast-instruction" aria-hidden="true"><span className="mouse-mark"><i /></span><span>滚动靠近</span></div>
+      <div className="coast-instruction" aria-hidden="true">
+        <span className="mouse-mark"><i /></span><span className="touch-mark"><i /></span>
+        <span className="pointer-copy">滚动靠近</span><span className="touch-copy">上滑靠近</span>
+      </div>
       <aside className={`site-index ${menuOpen ? 'is-open' : ''}`} id="site-index" aria-hidden={!menuOpen}>
         <div className="index-inner">
           <span className="index-kicker">CHARLESACMEN / INDEX</span>

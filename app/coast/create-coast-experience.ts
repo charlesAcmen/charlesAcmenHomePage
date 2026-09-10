@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { CSS3DRenderer } from 'three/addons/renderers/CSS3DRenderer.js';
 import { createCoastAudio } from './audio-engine';
 import { buildCoast } from './model';
+import { createTouchControls } from './touch-controls';
+import { getViewportProfile } from './viewport-profile';
 
 type ProgressListener = (progress: number) => void;
 type LookModeListener = (locked: boolean) => void;
@@ -14,7 +16,6 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
   renderer.setClearColor(0xfffefd, 1);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
   renderer.domElement.setAttribute('aria-hidden', 'true');
   container.appendChild(renderer.domElement);
   const cssRenderer = new CSS3DRenderer();
@@ -35,13 +36,14 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
   const lookAt = new THREE.Vector3();
   const lookRotation = new THREE.Euler(0, 0, 0, 'YXZ');
   const pointer = new THREE.Vector2();
+  const touchPickOffsets: ReadonlyArray<readonly [number, number]> = [
+    [0, 0], [1, 0], [-1, 0], [0, 1], [0, -1],
+    [0.7, 0.7], [-0.7, 0.7], [0.7, -0.7], [-0.7, -0.7],
+  ];
   let targetProgress = 0;
   let currentProgress = 0;
   let lastReported = -1;
   let rafId = 0;
-  let pointerStartY = 0;
-  let pointerStartProgress = 0;
-  let dragging = false;
   let pointerInside = false;
   let pointerDirty = true;
   let lastFrameTime = 0;
@@ -50,8 +52,10 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
   let preserveLook = false;
   let lookYaw = 0;
   let lookPitch = 0;
+  let appliedPixelRatio = 0;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const clamp = (value: number) => Math.min(1, Math.max(0, value));
+  const wrapYaw = (value: number) => THREE.MathUtils.euclideanModulo(value + Math.PI, Math.PI * 2) - Math.PI;
 
   const publishProgress = () => {
     const rounded = Math.round(currentProgress * 100) / 100;
@@ -59,10 +63,23 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
   };
   const resize = () => {
     const { clientWidth, clientHeight } = container;
+    const viewport = getViewportProfile(clientWidth, clientHeight);
     camera.aspect = clientWidth / Math.max(clientHeight, 1);
+    camera.fov = viewport.cameraFov;
     camera.updateProjectionMatrix();
+    if (Math.abs(viewport.pixelRatio - appliedPixelRatio) > 0.01) {
+      appliedPixelRatio = viewport.pixelRatio;
+      renderer.setPixelRatio(appliedPixelRatio);
+    }
     renderer.setSize(clientWidth, clientHeight, false);
     cssRenderer.setSize(clientWidth, clientHeight);
+    container.dataset.input = viewport.touchCapable ? 'touch' : 'pointer';
+  };
+  const setPointerFromClient = (clientX: number, clientY: number) => {
+    const bounds = renderer.domElement.getBoundingClientRect();
+    pointer.x = ((clientX - bounds.left) / Math.max(bounds.width, 1)) * 2 - 1;
+    pointer.y = -((clientY - bounds.top) / Math.max(bounds.height, 1)) * 2 + 1;
+    return bounds;
   };
   const onWheel = (event: WheelEvent) => {
     const target = event.target;
@@ -72,36 +89,27 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
     targetProgress = clamp(targetProgress + event.deltaY * 0.00048);
   };
   const onPointerMove = (event: PointerEvent) => {
+    if (event.pointerType === 'touch' || event.pointerType === 'pen') return;
     if (pointerLocked) {
       lookYaw -= event.movementX * 0.0025;
       lookPitch = THREE.MathUtils.clamp(lookPitch - event.movementY * 0.0018, -0.72, 0.72);
       pointerDirty = true;
       return;
     }
-    const bounds = renderer.domElement.getBoundingClientRect();
-    pointer.x = ((event.clientX - bounds.left) / Math.max(bounds.width, 1)) * 2 - 1;
-    pointer.y = -((event.clientY - bounds.top) / Math.max(bounds.height, 1)) * 2 + 1;
+    const bounds = setPointerFromClient(event.clientX, event.clientY);
     pointerInside = event.clientX >= bounds.left && event.clientX <= bounds.right && event.clientY >= bounds.top && event.clientY <= bounds.bottom;
     pointerDirty = true;
-    if (dragging) targetProgress = clamp(pointerStartProgress + (pointerStartY - event.clientY) / Math.max(window.innerHeight * 0.75, 1));
   };
-  const onPointerLeave = () => {
+  const onPointerLeave = (event: PointerEvent) => {
+    if (event.pointerType === 'touch' || event.pointerType === 'pen') return;
     pointerInside = false;
     pointerDirty = true;
   };
   const onPointerDown = (event: PointerEvent) => {
+    if (event.pointerType === 'touch' || event.pointerType === 'pen') return;
     void audio.retryPlayback();
     const isVideoTarget = event.target instanceof Element && Boolean(event.target.closest('.studio-video-screen'));
-    if (event.pointerType === 'mouse') {
-      if (currentProgress > 0.9 && !isVideoTarget && !world.hasHoveredCard() && !pointerLocked) container.requestPointerLock();
-      return;
-    }
-    dragging = true; pointerStartY = event.clientY; pointerStartProgress = targetProgress;
-    container.setPointerCapture(event.pointerId);
-  };
-  const onPointerUp = (event: PointerEvent) => {
-    dragging = false;
-    if (container.hasPointerCapture(event.pointerId)) container.releasePointerCapture(event.pointerId);
+    if (currentProgress > 0.9 && !isVideoTarget && !world.hasHoveredCard() && !pointerLocked) container.requestPointerLock();
   };
   const onKeyDown = (event: KeyboardEvent) => {
     void audio.retryPlayback();
@@ -111,6 +119,7 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
     if (event.key === 'End') targetProgress = 1;
   };
   const onClick = (event: MouseEvent) => {
+    if (touchControls.shouldSuppressClick()) return;
     if (event.target instanceof Element && event.target.closest('.studio-video-screen')) return;
     const carIndex = world.activateHovered();
     if (carIndex !== null) void audio.honk(carIndex);
@@ -133,6 +142,42 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
       rafId = requestAnimationFrame(animate);
     }
   };
+  const activateAtTouchPoint = (clientX: number, clientY: number) => {
+    const bounds = renderer.domElement.getBoundingClientRect();
+    const radius = THREE.MathUtils.clamp(Math.min(bounds.width, bounds.height) * 0.026, 15, 24);
+    let activated = false;
+
+    for (const [offsetX, offsetY] of touchPickOffsets) {
+      const sampleX = clientX + offsetX * radius;
+      const sampleY = clientY + offsetY * radius;
+      if (sampleX < bounds.left || sampleX > bounds.right || sampleY < bounds.top || sampleY > bounds.bottom) continue;
+      setPointerFromClient(sampleX, sampleY);
+      if (!world.updatePointer(camera, pointer, true, currentProgress)) continue;
+      const carIndex = world.activateHovered();
+      if (carIndex !== null) void audio.honk(carIndex);
+      activated = true;
+      break;
+    }
+
+    if (!activated) world.updatePointer(camera, pointer, false, currentProgress);
+    pointerInside = false;
+    pointerDirty = true;
+  };
+  const touchControls = createTouchControls({
+    element: container,
+    getProgress: () => targetProgress,
+    setProgress: (progress) => { targetProgress = clamp(progress); },
+    addLookDelta: (deltaX, deltaY) => {
+      preserveLook = true;
+      lookYaw = wrapYaw(lookYaw - deltaX * 0.0034);
+      lookPitch = THREE.MathUtils.clamp(lookPitch - deltaY * 0.0028, -0.72, 0.72);
+      pointerInside = false;
+      pointerDirty = true;
+    },
+    activateAt: activateAtTouchPoint,
+    onInteraction: () => { void audio.retryPlayback(); },
+    shouldIgnoreTarget: (target) => target instanceof Element && Boolean(target.closest('.studio-video-screen')),
+  });
   const animate = (time: number) => {
     if (!running) { rafId = 0; return; }
     const delta = Math.min((time - lastFrameTime) / 1000 || 1 / 60, 1 / 30);
@@ -156,7 +201,7 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
     const cameraMoved = Math.abs(currentProgress - previousProgress) > 0.00001;
     if (pointerDirty || cameraMoved) {
       const hoveringInteractive = world.updatePointer(camera, pointer, pointerInside, currentProgress);
-      container.style.cursor = hoveringInteractive ? 'pointer' : dragging ? 'grabbing' : 'grab';
+      container.style.cursor = hoveringInteractive ? 'pointer' : 'grab';
       pointerDirty = false;
     }
     world.animate(time * 0.001, delta, currentProgress);
@@ -174,8 +219,6 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
   window.addEventListener('keydown', onKeyDown);
   document.addEventListener('visibilitychange', onVisibilityChange);
   container.addEventListener('pointerdown', onPointerDown);
-  container.addEventListener('pointerup', onPointerUp);
-  container.addEventListener('pointercancel', onPointerUp);
   container.addEventListener('pointerleave', onPointerLeave);
   container.addEventListener('click', onClick);
   document.addEventListener('pointerlockchange', onPointerLockChange);
@@ -184,19 +227,27 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
   rafId = requestAnimationFrame(animate);
 
   return {
-    setProgress(value: number) { targetProgress = clamp(value); if (reducedMotion) currentProgress = targetProgress; },
+    setProgress(value: number) {
+      targetProgress = clamp(value);
+      if (value < 0.76) {
+        preserveLook = false;
+        lookYaw = 0;
+        lookPitch = 0;
+      }
+      if (reducedMotion) currentProgress = targetProgress;
+    },
     setSoundEnabled(enabled: boolean) { return audio.setEnabled(enabled); },
     dispose() {
       cancelAnimationFrame(rafId); observer.disconnect();
       window.removeEventListener('wheel', onWheel); window.removeEventListener('pointermove', onPointerMove); window.removeEventListener('keydown', onKeyDown);
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      container.removeEventListener('pointerdown', onPointerDown); container.removeEventListener('pointerup', onPointerUp); container.removeEventListener('pointercancel', onPointerUp);
+      container.removeEventListener('pointerdown', onPointerDown);
       container.removeEventListener('pointerleave', onPointerLeave); container.removeEventListener('click', onClick);
       document.removeEventListener('pointerlockchange', onPointerLockChange);
       if (document.pointerLockElement === container) document.exitPointerLock();
       onLookModeChange(false);
       document.documentElement.style.removeProperty('--journey');
-      audio.dispose(); world.dispose(); renderer.dispose(); renderer.domElement.remove(); cssRenderer.domElement.remove();
+      touchControls.dispose(); audio.dispose(); world.dispose(); renderer.dispose(); renderer.domElement.remove(); cssRenderer.domElement.remove();
     },
   };
 }

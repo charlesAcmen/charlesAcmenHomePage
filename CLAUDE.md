@@ -16,6 +16,7 @@
 - 声音：`app/coast/audio-engine.ts`，默认开启、受限时手势重试、媒体流式循环、车辆距离衰减与合成喇叭。
 - 海浪：`app/coast/surf.ts`，由浏览进度驱动，不是独立时间动画。
 - 显示器：`app/coast/studio-display.ts`，Three.js 外壳 + 延迟加载的 CSS3D YouTube iframe。
+- 触屏：`app/coast/touch-controls.ts` 管理轻点、单指导航/环视和双指推进；`app/coast/viewport-profile.ts` 管理移动端 FOV 与 DPR。
 - 内容：`app/site-data.ts` 与 `app/coast/social-card-data.ts`。
 
 ## 开始和结束任务

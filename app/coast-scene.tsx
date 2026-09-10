@@ -34,6 +34,9 @@ export default function CoastScene() {
     <section className="coast-experience" id="coast" aria-label="可滚动探索的迈阿密海岸线描场景">
       <div ref={mountRef} className="coast-canvas" />
       <div className={`room-reticle ${lookLocked ? 'is-visible' : ''}`} aria-hidden="true" />
+      <div className={`touch-guide ${progress > 0.86 ? 'is-visible' : ''}`} aria-hidden="true">
+        <span>单指 360° 环视</span><i /><span>双指张合推进 / 后退</span>
+      </div>
       <nav className="sr-only" aria-label="CharlesAcmen 社交主页">
         <a href="https://github.com/charlesAcmen" target="_blank" rel="noreferrer">GitHub</a>
         <a href="https://www.instagram.com/charlieacmen/" target="_blank" rel="noreferrer">Instagram</a>
