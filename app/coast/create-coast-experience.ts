@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CSS3DRenderer } from 'three/addons/renderers/CSS3DRenderer.js';
 import { createCoastAudio } from './audio-engine';
 import { buildCoast } from './model';
+import { createPointerLockController } from './pointer-lock-controller';
 import { createTouchControls } from './touch-controls';
 import { getViewportProfile } from './viewport-profile';
 
@@ -53,9 +54,25 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
   let lookYaw = 0;
   let lookPitch = 0;
   let appliedPixelRatio = 0;
+  let roomCameraRetreat = 0;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const clamp = (value: number) => Math.min(1, Math.max(0, value));
   const wrapYaw = (value: number) => THREE.MathUtils.euclideanModulo(value + Math.PI, Math.PI * 2) - Math.PI;
+
+  const pointerLock = createPointerLockController({
+    element: container,
+    onChange: ({ locked, mode }) => {
+      pointerLocked = locked;
+      preserveLook = !locked;
+      container.dataset.pointerMode = mode;
+      if (locked) {
+        pointer.set(0, 0);
+        pointerInside = true;
+      }
+      onLookModeChange(locked);
+      pointerDirty = true;
+    },
+  });
 
   const publishProgress = () => {
     const rounded = Math.round(currentProgress * 100) / 100;
@@ -66,6 +83,7 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
     const viewport = getViewportProfile(clientWidth, clientHeight);
     camera.aspect = clientWidth / Math.max(clientHeight, 1);
     camera.fov = viewport.cameraFov;
+    roomCameraRetreat = viewport.roomCameraRetreat;
     camera.updateProjectionMatrix();
     if (Math.abs(viewport.pixelRatio - appliedPixelRatio) > 0.01) {
       appliedPixelRatio = viewport.pixelRatio;
@@ -109,7 +127,15 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
     if (event.pointerType === 'touch' || event.pointerType === 'pen') return;
     void audio.retryPlayback();
     const isVideoTarget = event.target instanceof Element && Boolean(event.target.closest('.studio-video-screen'));
-    if (currentProgress > 0.9 && !isVideoTarget && !world.hasHoveredCard() && !pointerLocked) container.requestPointerLock();
+    if (isVideoTarget || event.target !== renderer.domElement) return;
+    if (pointerLock.isDisplayMode()) {
+      if (world.hasHoveredDisplay() || world.hasHoveredCard()) return;
+      pointerLock.leaveDisplayModeAndRequest();
+      return;
+    }
+    if (currentProgress > 0.9 && !world.hasHoveredCard() && !world.hasHoveredDisplay() && !pointerLocked) {
+      pointerLock.request();
+    }
   };
   const onKeyDown = (event: KeyboardEvent) => {
     void audio.retryPlayback();
@@ -121,18 +147,12 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
   const onClick = (event: MouseEvent) => {
     if (touchControls.shouldSuppressClick()) return;
     if (event.target instanceof Element && event.target.closest('.studio-video-screen')) return;
+    if (pointerLocked && world.hasHoveredDisplay()) {
+      pointerLock.enterDisplayMode();
+      return;
+    }
     const carIndex = world.activateHovered();
     if (carIndex !== null) void audio.honk(carIndex);
-  };
-  const onPointerLockChange = () => {
-    pointerLocked = document.pointerLockElement === container;
-    preserveLook = !pointerLocked;
-    if (pointerLocked) {
-      pointer.set(0, 0);
-      pointerInside = true;
-    }
-    onLookModeChange(pointerLocked);
-    pointerDirty = true;
   };
   const onVisibilityChange = () => {
     running = !document.hidden;
@@ -185,9 +205,10 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
     const previousProgress = currentProgress;
     currentProgress = reducedMotion ? targetProgress : THREE.MathUtils.damp(currentProgress, targetProgress, 4.4, delta);
     cameraPath.getPointAt(currentProgress, camera.position);
+    const roomLook = THREE.MathUtils.smoothstep(currentProgress, 0.76, 0.9);
+    camera.position.z += roomCameraRetreat * roomLook;
     lookAt.copy(cameraTarget);
     camera.lookAt(lookAt);
-    const roomLook = THREE.MathUtils.smoothstep(currentProgress, 0.76, 0.9);
     if (roomLook > 0.001) {
       if (!pointerLocked && !preserveLook) {
         lookYaw = -pointer.x * 1.38;
@@ -201,11 +222,11 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
     const cameraMoved = Math.abs(currentProgress - previousProgress) > 0.00001;
     if (pointerDirty || cameraMoved) {
       const hoveringInteractive = world.updatePointer(camera, pointer, pointerInside, currentProgress);
-      container.style.cursor = hoveringInteractive ? 'pointer' : 'grab';
+      container.style.cursor = pointerLock.isDisplayMode() ? 'default' : (hoveringInteractive ? 'pointer' : 'grab');
       pointerDirty = false;
     }
     world.animate(time * 0.001, delta, currentProgress);
-    audio.update(currentProgress);
+    audio.update(currentProgress, delta);
     renderer.render(scene, camera);
     cssRenderer.render(scene, camera);
     publishProgress();
@@ -221,7 +242,6 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
   container.addEventListener('pointerdown', onPointerDown);
   container.addEventListener('pointerleave', onPointerLeave);
   container.addEventListener('click', onClick);
-  document.addEventListener('pointerlockchange', onPointerLockChange);
   resize();
   lastFrameTime = performance.now();
   rafId = requestAnimationFrame(animate);
@@ -243,9 +263,9 @@ export function createCoastExperience(container: HTMLDivElement, onProgress: Pro
       document.removeEventListener('visibilitychange', onVisibilityChange);
       container.removeEventListener('pointerdown', onPointerDown);
       container.removeEventListener('pointerleave', onPointerLeave); container.removeEventListener('click', onClick);
-      document.removeEventListener('pointerlockchange', onPointerLockChange);
-      if (document.pointerLockElement === container) document.exitPointerLock();
+      pointerLock.dispose();
       onLookModeChange(false);
+      delete container.dataset.pointerMode;
       document.documentElement.style.removeProperty('--journey');
       touchControls.dispose(); audio.dispose(); world.dispose(); renderer.dispose(); renderer.domElement.remove(); cssRenderer.domElement.remove();
     },

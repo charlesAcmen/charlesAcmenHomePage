@@ -27,6 +27,7 @@ export function buildCoast() {
   const studio = createStudio(root);
   const traffic = createTraffic(root);
   let cardHovered = false;
+  let displayHovered = false;
   const palms: Array<[number, number, number, number]> = [
     [-43, 13.5, 7.2, 0.4], [-31, 15, 8.3, -0.45], [-18.5, 12.5, 7.5, 0.34], [-11.8, 14.7, 8.8, -0.5],
     [11.8, 14, 8.4, 0.42], [19, 13.1, 7.4, -0.38], [31, 15.5, 8.8, 0.55], [43, 13.8, 7.8, -0.4],
@@ -41,12 +42,15 @@ export function buildCoast() {
       const socialHovered = studio.socialWall.updatePointer(camera, pointer, pointerInside && progress > 0.68);
       const projectHovered = studio.projectWall.updatePointer(camera, pointer, pointerInside && progress > 0.79);
       cardHovered = socialHovered || projectHovered;
-      const displayHovered = studio.display.updatePointer(camera, pointer, pointerInside && progress > 0.8);
+      displayHovered = studio.display.updatePointer(camera, pointer, pointerInside && progress > 0.8);
       const carHovered = traffic.updatePointer(camera, pointer, pointerInside && !cardHovered && !displayHovered);
       return cardHovered || displayHovered || carHovered;
     },
     hasHoveredCard() {
       return cardHovered;
+    },
+    hasHoveredDisplay() {
+      return displayHovered;
     },
     activateHovered() {
       if (studio.socialWall.activateHovered()) return null;

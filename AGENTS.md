@@ -28,14 +28,15 @@
 - 车辆：由同一个进度驱动，双向移动并在街道边界循环；hover 抬升，点击触发对应车辆的空间鸣笛。
 - 卡片：只在镜头接近工作室后启用 raycast；社交卡 hover 形变、点击外链或切换 WeChat/QQ 二维码；左墙项目卡使用完整图片比例，Project 3 图片点击后轮换封面，项目名称才跳转对应仓库。
 - 海浪：五组近岸浪带由同一个浏览进度驱动，推进、抬升、摊开和消失都应保持可逆。
-- 声音：意图状态默认开启；浏览器阻止自动播放时，在首次有效用户手势中重试。海浪是全局底声，车辆和喇叭是绑定在车辆节点上的空间声源。
-- 显示器：右墙上的嵌入式 3D 边框包围一个 CSS3D YouTube iframe；只在接近工作室后加载，最终阶段才允许指针交互。
+- 声音：意图状态默认开启；浏览器阻止自动播放时，在首次有效用户手势中重试。海浪是全局底声，车辆和喇叭是绑定在车辆节点上的空间声源；引擎层随由浏览进度产生的车辆速度起伏，车辆静止时应接近静音，避免六条怠速循环堆成持续低频。
+- 显示器：右墙上的嵌入式 3D 边框包围一个 CSS3D YouTube iframe；只在接近工作室后加载，最终阶段才允许指针交互。Pointer Lock 中用准星点击显示器时进入独立播放器模式并退出锁定；播放器模式禁止自动重锁，点击显示器外的空白 WebGL 画布才尝试返回环视。嵌入登录不可用时保留直接打开 YouTube 的入口。
 
 ## 模块边界
 
 - `app/page.tsx`：HTML/React 页面壳、页头、介绍和索引抽屉。不要把 Three.js 场景代码写回这里。
 - `app/coast-scene.tsx`：React 与实时体验之间的薄桥；只管理挂载、进度和声音 UI。
 - `app/coast/create-coast-experience.ts`：渲染器、摄像机路径、输入监听、主循环和统一清理。
+- `app/coast/pointer-lock-controller.ts`：Pointer Lock 的 free / locked / display 状态、失败监听和退出后的重锁冷却；不要把浏览器锁定时序重新散落到场景事件里。
 - `app/coast/touch-controls.ts`：手机、平板和触控笔的手势状态机；只通过回调改变进度、视角与激活目标。
 - `app/coast/viewport-profile.ts`：根据触屏能力和宽高比计算相机 FOV 与 DPR 预算。
 - `app/coast/model.ts`：只装配世界并转发 update/activate/animate/dispose。

@@ -18,7 +18,7 @@ The checked-in audio is intentionally sourced from openly licensed game-audio li
 - Work: [racing car engine sound loops](https://opengameart.org/content/racing-car-engine-sound-loops)
 - Creator: domasx2
 - License: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
-- Note: the source page states that the loops were remade from a public-domain recording. The three selected files differ in pitch and are further staggered and spatialized at runtime.
+- Note: the source page states that the loops were remade from a public-domain recording and differ only in pitch. The three selected files are staggered and spatialized at runtime; their volume and playback rate now follow the scroll-driven vehicle speed so the pitch-only loops do not form a constant idling drone.
 
 Attribution is not required by CC0, but the links are retained for provenance and future maintenance.
 

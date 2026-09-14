@@ -9,6 +9,15 @@ type Track = {
   sound: THREE.Audio | THREE.PositionalAudio;
 };
 
+type EngineTrack = Track & {
+  media: HTMLAudioElement;
+  sound: THREE.PositionalAudio;
+  baseRate: number;
+  volumeScale: number;
+  currentRate: number;
+  currentVolume: number;
+};
+
 const engineUrls = [carEngineLowUrl, carEngineMidUrl, carEngineHighUrl];
 
 function createHornBuffer(context: AudioContext) {
@@ -45,6 +54,7 @@ export function createCoastAudio(camera: THREE.Camera, carAnchors: THREE.Object3
   camera.add(listener);
 
   const tracks: Track[] = [];
+  const engineTracks: EngineTrack[] = [];
   const wavesMedia = createStreamingMedia(wavesUrl);
   const waves = new THREE.Audio(listener);
   waves.setMediaElementSource(wavesMedia);
@@ -66,7 +76,8 @@ export function createCoastAudio(camera: THREE.Camera, carAnchors: THREE.Object3
 
   carAnchors.forEach((anchor, index) => {
     const media = createStreamingMedia(engineUrls[index % engineUrls.length]);
-    media.playbackRate = [0.92, 1, 1.08, 0.96, 1.04, 1.12][index] ?? 1;
+    const baseRate = [0.92, 1, 1.08, 0.96, 1.04, 1.12][index] ?? 1;
+    media.playbackRate = baseRate * 0.84;
     media.preservesPitch = false;
     media.addEventListener('loadedmetadata', () => {
       if (Number.isFinite(media.duration) && media.duration > 0) {
@@ -79,15 +90,25 @@ export function createCoastAudio(camera: THREE.Camera, carAnchors: THREE.Object3
     engine.setDistanceModel('inverse');
     engine.setRefDistance(8.5);
     engine.setRolloffFactor(0.8);
-    engine.setVolume(0.4 + (index % 3) * 0.035);
+    engine.setVolume(0.008);
     anchor.add(engine);
     tracks.push({ media, sound: engine });
+    engineTracks.push({
+      media,
+      sound: engine,
+      baseRate,
+      volumeScale: 1 + (index % 3) * 0.08,
+      currentRate: media.playbackRate,
+      currentVolume: 0.008,
+    });
   });
 
   let enabled = true;
   let pageVisible = !document.hidden;
   let revision = 0;
   let lastWaveVolume = 0.22;
+  let lastProgress = 0;
+  let movementAmount = 0;
 
   const pauseAll = () => tracks.forEach(({ media }) => media.pause());
   const syncPlayback = async () => {
@@ -139,11 +160,29 @@ export function createCoastAudio(camera: THREE.Camera, carAnchors: THREE.Object3
       if (horn.isPlaying) horn.stop();
       horn.play();
     },
-    update(progress: number) {
+    update(progress: number, delta: number) {
       const volume = THREE.MathUtils.lerp(0.22, 0.095, progress);
       if (Math.abs(volume - lastWaveVolume) > 0.001) {
         lastWaveVolume = volume;
         waves.setVolume(volume);
+      }
+
+      const progressSpeed = Math.abs(progress - lastProgress) / Math.max(delta, 1 / 120);
+      lastProgress = progress;
+      const targetMovement = THREE.MathUtils.clamp(progressSpeed * 3.4, 0, 1);
+      movementAmount = THREE.MathUtils.damp(movementAmount, targetMovement, 7, delta);
+      for (let index = 0; index < engineTracks.length; index++) {
+        const track = engineTracks[index];
+        const nextVolume = (0.008 + movementAmount * 0.13) * track.volumeScale;
+        if (Math.abs(nextVolume - track.currentVolume) > 0.001) {
+          track.currentVolume = nextVolume;
+          track.sound.setVolume(nextVolume);
+        }
+        const nextRate = track.baseRate * THREE.MathUtils.lerp(0.84, 1.08, movementAmount);
+        if (Math.abs(nextRate - track.currentRate) > 0.002) {
+          track.currentRate = nextRate;
+          track.media.playbackRate = nextRate;
+        }
       }
     },
     dispose() {

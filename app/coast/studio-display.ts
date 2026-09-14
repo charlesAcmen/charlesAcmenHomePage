@@ -3,6 +3,8 @@ import { CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
 import { box, cyanMaterial, nightMaterial, pinkMaterial, violetMaterial } from './scene-kit';
 
 const VIDEO_ID = 'EiQEBYDox_k';
+const VIDEO_URL = `https://www.youtube.com/watch?v=${VIDEO_ID}`;
+const PLAYER_ORIGIN = 'https://www.youtube.com';
 const PLAYER_WIDTH = 640;
 const PLAYER_HEIGHT = 360;
 export const DISPLAY_CENTER_Z = -10.35;
@@ -10,7 +12,7 @@ export const DISPLAY_OPENING_WIDTH = 7.3;
 
 function createPlayerUrl() {
   const origin = encodeURIComponent(window.location.origin);
-  return `https://www.youtube-nocookie.com/embed/${VIDEO_ID}?rel=0&playsinline=1&enablejsapi=1&origin=${origin}`;
+  return `${PLAYER_ORIGIN}/embed/${VIDEO_ID}?rel=0&playsinline=1&enablejsapi=1&origin=${origin}`;
 }
 
 export function createStudioDisplay(parent: THREE.Object3D) {
@@ -43,6 +45,16 @@ export function createStudioDisplay(parent: THREE.Object3D) {
   player.allowFullscreen = true;
   player.tabIndex = -1;
   screen.appendChild(player);
+
+  const openOnYouTube = document.createElement('a');
+  openOnYouTube.className = 'studio-video-link';
+  openOnYouTube.href = VIDEO_URL;
+  openOnYouTube.target = '_blank';
+  openOnYouTube.rel = 'noreferrer';
+  openOnYouTube.textContent = 'OPEN ON YOUTUBE ↗';
+  openOnYouTube.setAttribute('aria-label', '在 YouTube 打开视频');
+  openOnYouTube.tabIndex = -1;
+  screen.appendChild(openOnYouTube);
 
   const screenObject = new CSS3DObject(screen);
   screen.style.pointerEvents = 'none';
@@ -79,6 +91,7 @@ export function createStudioDisplay(parent: THREE.Object3D) {
         interactive = nextInteractive;
         screen.style.pointerEvents = interactive ? 'auto' : 'none';
         player.tabIndex = interactive ? 0 : -1;
+        openOnYouTube.tabIndex = interactive ? 0 : -1;
       }
     },
     updatePointer(camera: THREE.Camera, pointer: THREE.Vector2, interactionEnabled: boolean) {
@@ -94,7 +107,7 @@ export function createStudioDisplay(parent: THREE.Object3D) {
       if (!hovered || !playerLoaded) return false;
       player.contentWindow?.postMessage(
         JSON.stringify({ event: 'command', func: 'playVideo', args: '' }),
-        'https://www.youtube-nocookie.com',
+        PLAYER_ORIGIN,
       );
       return true;
     },
